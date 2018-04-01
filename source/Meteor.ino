@@ -1,268 +1,143 @@
 #include <Gamebuino-Meta.h>
-const uint8_t myshipData[] = {8, 8, 8, 0, 0, 0xFF, 1, 0x00, 0x00,0x00, 0x00,0x00, 0x07,0x70, 0x00,0x00, 0x07,0x70, 0x00,0x00, 0x70,0x07, 0x00,0x00, 0x70,0x07, 0x00,0x07, 0x00,0x00, 0x70,0x07, 0x00,0x00, 0x70,0x00, 0x00,0x00, 0x00,0x00, 0x00,0x00, 0x00,0x00, 0x00,0x00, 0x00,0x00, 0x00,0x07, 0x70,0x00, 0x77,0x77, 0x70,0x77, 0x00,0x07, 0x00,0x00, 0x00,0x07, 0x00,0x00, 0x00,0x70, 0x00,0x00, 0x00,0x70, 0x00,0x00, 0x00,0x00, 0x00,0x07, 0x70,0x00, 0x00,0x00, 0x07,0x70, 0x00,0x00, 0x00,0x07, 0x70,0x00, 0x00,0x07, 0x70,0x00, 0x07,0x70, 0x00,0x07, 0x70,0x00, 0x00,0x00, 0x00,0x00, 0x00,0x00, 0x00,0x70, 0x00,0x00, 0x00,0x77, 0x00,0x00, 0x00,0x07, 0x00,0x00, 0x00,0x07, 0x00,0x77, 0x00,0x00, 0x70,0x07, 0x77,0x07, 0x70,0x00, 0x00,0x77, 0x70,0x00, 0x00,0x00, 0x00,0x00, 0x00,0x00, 0x00,0x07, 0x00,0x00, 0x70,0x07, 0x00,0x00, 0x70,0x00, 0x70,0x07, 0x00,0x00, 0x70,0x07, 0x00,0x00, 0x07,0x70, 0x00,0x00, 0x07,0x70, 0x00,0x00, 0x00,0x00, 0x00,0x00, 0x00,0x70, 0x00,0x00, 0x07,0x70, 0x00,0x00, 0x07,0x00, 0x00,0x00, 0x07,0x00, 0x00,0x00, 0x70,0x00, 0x77,0x00, 0x77,0x07, 0x70,0x00, 0x77,0x70, 0x00,0x00, 0x00,0x00, 0x00,0x00, 0x00,0x00, 0x00,0x00, 0x00,0x07, 0x70,0x00, 0x07,0x70, 0x00,0x07, 0x70,0x00, 0x00,0x07, 0x70,0x00, 0x00,0x00, 0x07,0x70, 0x00,0x00, 0x00,0x07, 0x70,0x00, 0x00,0x00, 0x00,0x00, 0x00,0x00, 0x00,0x00, 0x00,0x00, 0x00,0x00, 0x77,0x77, 0x00,0x00, 0x77,0x00, 0x77,0x00, 0x70,0x00, 0x00,0x00, 0x70,0x00, 0x00,0x00, 0x07,0x00, 0x00,0x00, 0x07,0x00, 0x00};
-Image myShipImage = Image(myshipData);
-// direction vector class
-class dirVector {
+//a point in a radially defined polyshape, with three peices of information, number of points, angle of each point(array), length from 0 of each point(array)
+class poly {
+  private:
+  float a,r; // angle and radius of any particular point
+  public:
+  poly(float ang, float rad){
+    // contstructor to allow for initialization of pot
+    a = ang;
+    r = rad;
+  };
+  float getA(){
+    return a;
+  };
+  float getR(){
+    return r;
+  };
+};
+// to encode a shape, start at 0 radians, and each new point has a radian value and a length value, it is always closed by the drawing class
+//poly shipPoints[] = {{0.0,10.0},{2.3562,4.0},{3.145,0.75},{3.9269,4.0}};
+poly shipPoints[] = {{0.0,6.0},{3.9269,4.5},{3.145,0.75},{2.3562,4.5}};
+const int shipPointCount = 4; // how many points are in this shape
+
+// a 'Physics' class to implement the excellent method demonstrated by Riksu9000 as the physics method for any class that requires it
+class phys {
    public:
-   int dir, mag;
-   void setVal(int, int);
-   float getXpart();
-   float getYpart();
-   dirVector add(dirVector);
-   dirVector sub(dirVector);
- };
- 
-void dirVector::setVal (int dirnew, int magnew){
-    mag = magnew;
-    dir = dirnew;
-};
+   //variables for: location, velocity, acceleration, and direction
+   float x, y, xVel,yVel, xThr, yThr, thrFactor, drgFactor, heading;
+   void updatePosition(){
+    // using temp variables to reduce function calls a bit
+    int w = gb.display.width();
+    int h = gb.display.height();
+      x += xVel;
+      y += yVel;
 
-float dirVector::getXpart(){
-  float rads = ((dir % 359) * 71) / 4068;
-    return (mag * cos(rads));
-};
+      if (x < 0){
+        x = w;
+      };
+      if (x > w){
+        x = 0;
+      };
+      if (y < 0){
+        y = h;
+      };
+      if (y > h){
+        y = 0;
+      };
+   };
+   void applyThrust(float dir){
+      xThr = sin(dir) * thrFactor;
+      yThr = cos(dir) * thrFactor;
 
-float dirVector::getYpart(){
-  float rads = ((dir % 359) * 71) / 4068;
-    return (mag * sin(rads));
+      xVel += xThr;
+      yVel += yThr;
+   };
+   void applyDrag(float drg){
+      xVel *= drg;
+      yVel *= drg;
+   };
+   void setRotation(float rate){
+      //positve rate rotates counter clockwise
+      heading = heading + rate;
+   };
+   
 };
-
-dirVector dirVector::add(dirVector vecB) {
-float deg, len, sumx, sumy;
-  sumx = getXpart() + vecB.getXpart();
-  sumy = getYpart() + vecB.getYpart();
-  deg = atan(sumy/sumx);
-  deg = ((deg) * 57296 / 1000);
-  if (sumx > 0 && sumy > 0){
-  deg = deg;
+// a special draw function to deal with the radially encouded 'vector' graphics and collision detection.
+void drw(float posx, float posy, float dir, poly shape[], int pointCount){
+  //gb.display.drawLine(gb.display.width() / 2, gb.display.height() / 2,(gb.display.width() / 2) + sin(shipDir) * 10, (gb.display.height() / 2) + cos(shipDir) * 10);
+  float xa,ya,xb,yb;
+  //dir -= PI; //for reasons somewhat beyond me, it draws things upside down, this is an attempt to patch taht.
+  for(int i=0; i <= pointCount; i++){
+    //special case for first point in the shape, since a single point line doesn't work
+    if (i == 0){
+      //calclates what the x and y should be, based on the angle and radius of the point, and the x, y, and angle of the entity being drawn
+      xa = posx + (sin(dir+shape[i].getA()) * shape[i].getR());
+      ya = posy + (cos(dir+shape[i].getA()) * shape[i].getR());
+    };
+    if (i >0 && i < (pointCount)){
+      // now we have a start point, and are now getting the next point, drawing the line, and pushing those values to the xa/ya ones to repeat
+      xb = posx + (sin(dir+shape[i].getA()) * shape[i].getR());
+      yb = posy + (cos(dir+shape[i].getA()) * shape[i].getR());
+      gb.display.drawLine(xa,ya,xb,yb);
+      xa = xb;
+      ya = yb;
+    };
+    if (i == (pointCount)){
+      //we are on the last datapoint, we will need to get this information from the first point to close the polygon
+      xb = posx + (sin(dir+shape[0].getA()) * shape[0].getR());
+      yb = posy + (cos(dir+shape[0].getA()) * shape[0].getR());
+      gb.display.drawLine(xa,ya,xb,yb);
+    };
   };
-  if (sumx < 0 && sumy < 0){
-  deg = deg + 180 % 359;
-  };
-  if (sumx < 0 && sumy > 0){
-  deg = deg + 180 % 359;
-  };
-  if (sumx > 0 && sumy > 0){
-  deg = deg + 360 % 359;
-  };
-  len = sqrt( sq(sumx) + sq(sumy));
-  dirVector output;
-  output.setVal(deg,len);
-  return output;
 };
-
-dirVector dirVector::sub(dirVector vecB) {
-float deg, len, sumx, sumy;
-  sumx = getXpart() - vecB.getXpart();
-  sumy = getYpart() - vecB.getYpart();
-  deg = atan(sumy/sumx);
-  deg = ((deg) * 57296 / 1000);
-    if (sumx > 0 && sumy > 0){
-  deg = deg;
-  };
-  if (sumx < 0 && sumy < 0){
-  deg = deg + 180 % 359;
-  };
-  if (sumx < 0 && sumy > 0){
-  deg = deg + 180 % 359;
-  };
-  if (sumx > 0 && sumy > 0){
-  deg = deg + 360 % 359;
-  };
-  len = sqrt( sq(sumx) + sq(sumy));
-  dirVector output;
-  output.setVal(deg,len);
-  return output;
-};
-class laser{
+//Ship class, doesn't need any position variables or anything like that, since it's part of the physics class the ship inherits
+class ship{
   public:
-  int x,y,heading;
-  dirVector mv;
-  
+  phys physics; // all of the elements of the class above can be called by ship.physics.<variable/function>
+  void draw(){
+    drw(physics.x,physics.y,physics.heading,shipPoints, shipPointCount);
   };
-class ship {
-  public:
-  int x, y, heading;
-  dirVector mv;
-  void applyThrust (int);
-  void applyDrag(int);
-  void setHeading(int);
-  void draw();
 };
-
-void ship::setHeading (int hdg){
-  heading = hdg;
-};
-
-void ship::applyThrust (int mag){
-  dirVector thrustvec;
-  if (mag > 0){
-    thrustvec.setVal(heading - 90 % 359, mag);
-  } else{
-    thrustvec.setVal((heading - 90) + 180 % 359, abs(mag));
-  };
-  dirVector newvec = mv.add(thrustvec);
-  mv.setVal(newvec.dir,newvec.mag);
-};
-
-void ship::applyDrag (int mag) {
-  dirVector dragvec;
-  dragvec.setVal((mv.dir - 180) % 359, mag);
-  dirVector newvec = mv.add(dragvec);
-  mv.setVal(newvec.dir,newvec.mag);
-};
-
-void ship::draw(){
-  int frame;
-switch (heading){
-  case 0:
-    frame =0;
-    break;
-  case 45:
-    frame =1;
-    break;
-  case 90:
-    frame =2;
-    break;
-  case 135:
-    frame =3;
-    break;
-  case 180:
-    frame =4;
-    break;
-  case 225:
-    frame =5;
-    break;
-  case 270:
-    frame =6;
-    break;
-  case 315:
-    frame =7;
-    break;
-};
- // gb.display.drawImage(x + 4, y + 4, myShipImage, 0, 0 + (8 * frame),8, 8);
- myShipImage.setFrame(frame);
- gb.display.drawImage(x+4,y+4, myShipImage);
-};
-
 ship myShip;
+
 void setup() {
   // put your setup code here, to run once:
   gb.begin();
-myShip.x = gb.display.width()/2;
-myShip.y = gb.display.height()/2;
-myShip.heading=0;
-gb.display.setTransparentColor(BLACK);
+  myShip.physics.x = gb.display.width()/2;
+  myShip.physics.y = gb.display.height()/2;
+  myShip.physics.thrFactor =0.2;
+  myShip.physics.drgFactor =0.96;
+  myShip.physics.xVel = 0.0;
+  myShip.physics.yVel = 0.0;
+  myShip.physics.heading = 0.0;
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
   while (!gb.update());
-  myShip.x += myShip.mv.getXpart();
-  myShip.y += myShip.mv.getYpart();
-
-  if (myShip.x < 0) {
-    myShip.x = gb.display.width();  
-  };
-  if (myShip.x > gb.display.width()) {
-    myShip.x = 0;  
-  };
-  if (myShip.y < 0) {
-    myShip.y = gb.display.height();  
-  };
-  if (myShip.y > gb.display.height()) {
-    myShip.y = 0;  
-  };
   gb.display.clear();
-  if (myShip.mv.mag >30) {
-    myShip.mv.mag =30;
+  //myShip.draw();
+  if(gb.buttons.repeat(BUTTON_LEFT, 0)){
+    myShip.physics.heading += 0.12568;
   };
-  
-  if (myShip.mv.mag < -30) {
-    myShip.mv.mag = -30;
+  if(gb.buttons.repeat(BUTTON_RIGHT, 0)){
+    myShip.physics.heading -= 0.12568;
   };
-  
-  if (gb.buttons.pressed(BUTTON_UP)){
-    myShip.applyThrust(1);
+  if(gb.buttons.repeat(BUTTON_UP, 0)){
+    myShip.physics.applyThrust(myShip.physics.heading);
   };
-
-  if (gb.buttons.pressed(BUTTON_DOWN)){
-    myShip.applyThrust(-1);
-  };
-  
-  if (gb.buttons.pressed(BUTTON_LEFT)){
-    switch (myShip.heading){
-      case 0:
-      myShip.heading = 315;
-      break;
-      case 315:
-      myShip.heading = 270;
-      break;
-      case 270:
-      myShip.heading = 225;
-      break;
-      case 225:
-      myShip.heading = 180;
-      break;
-      case 180:
-      myShip.heading = 135;
-      break;
-      case 135:
-      myShip.heading = 90;
-      break;
-      case 90:
-      myShip.heading = 45;
-      break;
-      case 45:
-      myShip.heading = 0;
-      break;
-    };
-  };
-
-  if (gb.buttons.pressed(BUTTON_RIGHT)){
-    switch (myShip.heading){
-      case 0:
-      myShip.heading = 45;
-      break;
-      case 45:
-      myShip.heading = 90;
-      break;
-      case 90:
-      myShip.heading = 135;
-      break;
-      case 135:
-      myShip.heading = 180;
-      break;
-      case 180:
-      myShip.heading = 225;
-      break;
-      case 225:
-      myShip.heading = 270;
-      break;
-      case 270:
-      myShip.heading = 315;
-      break;
-      case 315:
-      myShip.heading = 0;
-      break;
-    };
-  };
-  
-  if (gb.buttons.repeat(BUTTON_A,0)){
-    myShip.mv.mag = 0;
-    myShip.mv.dir = 0;
-  };
-  
-  /*
-  if (gb.buttons.repeat(BUTTON_B,0)){
-    myShip.heading = (myShip.heading +10);
-  };
-  */
+  myShip.physics.applyDrag(myShip.physics.drgFactor);
+  myShip.physics.updatePosition();
   myShip.draw();
-  gb.display.println(myShip.x);
-  gb.display.println(myShip.y);
-  gb.display.println(myShip.heading);
-  gb.display.println(myShip.mv.dir);
-  gb.display.println(myShip.mv.getXpart());
-  gb.display.println(myShip.mv.getYpart());
+  /*
+  gb.display.setColor(GREEN);
+  gb.display.drawLine(gb.display.width() / 2, gb.display.height() / 2,(gb.display.width() / 2) + sin(myShip.physics.heading) * 10, (gb.display.height() / 2) + cos(myShip.physics.heading) * 10);
+  gb.display.setColor(WHITE);
+  */
+  gb.display.println(myShip.physics.xVel);
+  gb.display.println(myShip.physics.yVel);
+  gb.display.println(myShip.physics.x);
+  gb.display.println(myShip.physics.y);
+ 
 };
