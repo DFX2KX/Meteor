@@ -1,2 +1,4 @@
 # Meteor
-A Gamebuino META Adaptation of Astroids. Has broken physics and might be cursed. Anyone's free to create a direvative that works (or tell me what I managed to break)
+A Gamebuino META Adaptation of Astroids.
+
+It's in the middle of a physics rewrite, but now has basic gameplay as well as the ability to customize controls and colors.
